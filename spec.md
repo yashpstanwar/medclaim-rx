@@ -71,3 +71,31 @@ To maintain absolute patient safety and regulatory compliance, the following cap
 2. **No Direct Bank / NEFT / UPI Financial Payouts:** The system outputs prior-authorization recommendation flags only; it never dispatches financial transfers or integrates with payment gateways.
 3. **No Autonomous Prescribing / Clinical Diagnosis:** The system does not recommend clinical treatment courses or diagnose medical conditions from scratch.
 4. **No Unsupervised Autonomous Approval:** `ready_to_dispense` is an advisory recommendation for the dispensing pharmacist, who retains statutory legal responsibility.
+
+---
+
+## 6. Clinical Gates & Deterministic Thresholds
+
+The pipeline implements non-negotiable Python-level deterministic gates:
+
+```python
+# Primary Clinical Gating Constants
+COST_GATE: float = 25000.0       # Claims >= ₹25,000 INR require CMO counter-stamp
+CONF_GATE: float = 0.80          # Extraction confidence < 0.80 requires clerk re-verification
+```
+
+### Routing Outcomes:
+- **`ready_to_dispense`:** Prescriber is verified ACTIVE, drug is on formulary, cost < ₹25,000 INR, extraction confidence >= 0.80, and no policy violations detected.
+- **`cmo_review_needed`:** Prescriber verified, drug on formulary, but cost >= ₹25,000 INR (high-cost biologic/specialty gate triggered).
+- **`pharmacist_review_needed`:** Prescriber verified, but drug is off-formulary (requires therapeutic substitution), or extraction confidence < 0.80.
+- **`rejected_invalid`:** Prescriber license not found in NMC registry, revoked/suspended, or critical slip tampering detected.
+
+---
+
+## 7. Fail-Closed Security Behaviors
+
+Under any unexpected or degraded operating condition, MedClaim Rx **fails closed**:
+
+1. **Empty Chroma Shelf:** If the vector database is unseeded, empty, or returns zero policy chunks, the system must **not** assume compliance. It halts and routes the claim to manual clinical review with an alert: `POLICY_ENGINE_UNAVAILABLE`.
+2. **Unknown / Unverified NMC License:** If `check_license(license_no)` returns `None` or non-active status (e.g. `NMC-99INVALID`), the pipeline aborts immediately with status `rejected_invalid` and gate `NMC_LICENSE_UNVERIFIED`.
+3. **Missing or Malformed Cost:** If the prescription slip lacks an explicit cost, or extraction cannot sanitize it into a valid positive float, confidence is capped at `0.40`, automatically tripping the `CONF_GATE` to prevent silent default clearance.
