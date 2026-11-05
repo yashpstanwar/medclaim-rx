@@ -386,3 +386,40 @@ with tab2:
         st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.info("Click **'Execute Full Golden Set Exam'** to run the 5 benchmark cases.")
+
+
+# ==========================================
+# TAB 3: Observability & Strong-Room Ledger
+# ==========================================
+with tab3:
+    st.subheader("📊 Observability Trace Diary & Strong-Room Ledger")
+    st.caption("Inspect immutable audit trails from logs/medclaim.jsonl and SQLite strong-room tables.")
+
+    obs_tab1, obs_tab2 = st.tabs(["📝 JSONL Trace Diary", "🗄️ SQLite Database Tables"])
+
+    with obs_tab1:
+        st.markdown("#### PII-Safe Operational Log (`logs/medclaim.jsonl`)")
+        st.caption("Note: Guarantees zero patient names, Aadhaar numbers, or raw prose are written to disk.")
+
+        traces = read_jsonl_traces(limit=50)
+        if traces:
+            trace_df = pd.DataFrame(traces)
+            st.dataframe(trace_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No trace entries found in logs/medclaim.jsonl yet. Run a claim to record traces.")
+
+    with obs_tab2:
+        st.markdown("#### Relational Strong-Room Tables (`data/medclaim.db`)")
+        selected_table = st.selectbox(
+            "Select Database Register to Inspect:",
+            options=["claims", "prescribers", "formulary"],
+            index=0,
+        )
+
+        rows = fetch_table_rows(f"SELECT * FROM {selected_table} ORDER BY rowid DESC LIMIT 100")
+        if rows:
+            table_df = pd.DataFrame(rows)
+            st.dataframe(table_df, use_container_width=True, hide_index=True)
+            st.caption(f"Showing up to 100 recent rows from table `{selected_table}`.")
+        else:
+            st.info(f"Table `{selected_table}` is currently empty.")
