@@ -18,3 +18,21 @@ from app.log import write_trace
 # Deterministic Clinical Gating Constants
 COST_GATE: float = 25000.0
 CONF_GATE: float = 0.80
+
+
+def extract_node(state: ClaimPacket) -> Dict[str, Any]:
+    """Station 1: Extract clinical parameters from raw prescription slip text."""
+    parsed = parse_labelled(state.get("raw_text", ""))
+    current_trace = list(state.get("trace") or [])
+    updated_trace = current_trace + ["extract"]
+    return {
+        "prescriber": parsed.get("prescriber", ""),
+        "license_no": parsed.get("license_no", ""),
+        "drug_code": parsed.get("drug_code", ""),
+        "diagnosis": parsed.get("diagnosis", ""),
+        "cost_inr": parsed.get("cost_inr", 0.0),
+        "confidence": parsed.get("confidence", 0.0),
+        "prompt_version": parsed.get("prompt_version", "lab_labels_v1"),
+        "status": "extracted",
+        "trace": updated_trace,
+    }
