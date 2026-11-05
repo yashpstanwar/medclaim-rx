@@ -140,3 +140,46 @@ def read_jsonl_traces(log_path: str = "logs/medclaim.jsonl", limit: int = 50) ->
         return list(reversed(records))[:limit]
     except Exception:
         return []
+
+from app.graph import graph, COST_GATE, CONF_GATE
+from app.tools import seed_db
+from app.memory import seed_policy, get_chroma_client, DEFAULT_COLLECTION_NAME
+
+# Sidebar: Governance & Strong-Room Status
+with st.sidebar:
+    st.title("⚙️ Clinical Governance")
+    st.markdown("### Deterministic Python Gates")
+    st.metric("COST_GATE (INR)", f"₹{COST_GATE:,.2f}")
+    st.metric("CONF_GATE (Min Score)", f"{CONF_GATE:.2f}")
+
+    st.markdown("---")
+    st.markdown("### Strong-Room Status")
+
+    # Live Database Counts
+    doc_count = len(fetch_table_rows("SELECT license_no FROM prescribers"))
+    drug_count = len(fetch_table_rows("SELECT drug_code FROM formulary"))
+    claim_count = len(fetch_table_rows("SELECT claim_id FROM claims"))
+
+    try:
+        client = get_chroma_client()
+        if hasattr(client, "get_or_create_collection"):
+            coll = client.get_or_create_collection(DEFAULT_COLLECTION_NAME)
+            chroma_count = coll.count()
+        elif hasattr(client, "count"):
+            chroma_count = client.count(DEFAULT_COLLECTION_NAME)
+        else:
+            chroma_count = 0
+    except Exception:
+        chroma_count = 0
+
+    st.write(f"🩺 **Verified Doctors:** `{doc_count}`")
+    st.write(f"💊 **Formulary Drugs:** `{drug_count}`")
+    st.write(f"📜 **Chroma Policy Chunks:** `{chroma_count}`")
+    st.write(f"📁 **Adjudicated Claims:** `{claim_count}`")
+
+    st.markdown("---")
+    if st.button("🔄 Re-Seed Strong-Room (DB + RAG)", use_container_width=True):
+        seed_db()
+        chunks_seeded = seed_policy()
+        st.success(f"Strong-room re-seeded ({chunks_seeded} policy chunks).")
+        st.rerun()
