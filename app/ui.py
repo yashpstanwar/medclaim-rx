@@ -275,3 +275,58 @@ with tab1:
             with st.spinner("Processing through 3-Station LangGraph..."):
                 triage_res = graph.invoke(packet_in)
                 st.session_state["triage_result"] = triage_res
+
+    with col_output:
+        st.subheader("2. Prior-Authorization Verdict & Trace")
+        result = st.session_state.get("triage_result")
+        if result:
+            status = result.get("status", "unknown")
+            gate = result.get("gate", "none")
+
+            # Verdict Banner
+            if status == "ready_to_dispense":
+                st.markdown(
+                    f'<div class="badge-pass">✅ READY TO DISPENSE &nbsp; | &nbsp; Gate: {gate}</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div class="badge-review">⚠️ NEEDS PHARMACIST REVIEW &nbsp; | &nbsp; Gate: {gate}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.write("")
+            # Station Walk Pills
+            trace_items = result.get("trace") or ["extract", "policy", "route"]
+            pills_html = " ".join([f'<span class="station-pill">{t.upper()}</span>' for t in trace_items])
+            st.markdown(f"**Station Execution Trace:** {pills_html}", unsafe_allow_html=True)
+
+            st.markdown("---")
+            # Metrics
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric("Total Cost (INR)", f"₹{result.get('cost_inr', 0.0):,.2f}")
+            with m2:
+                st.metric("Extraction Confidence", f"{result.get('confidence', 0.0):.2f}")
+            with m3:
+                st.metric("Prompt Version", result.get("prompt_version", "lab_labels_v1"))
+
+            st.write(f"👨‍⚕️ **Prescriber:** `{result.get('prescriber', 'N/A')}` ({result.get('license_no', 'N/A')})")
+            st.write(f"💊 **Medication:** `{result.get('drug_code', 'N/A')}` — Diagnosis: *{result.get('diagnosis', 'N/A')}*")
+
+            # ChromaDB Policy Evidence Expander
+            with st.expander("📚 ChromaDB Retrieved Clinical Policy Evidence (policy_hits)", expanded=True):
+                hits = result.get("policy_hits")
+                if isinstance(hits, list) and hits:
+                    for i, hit in enumerate(hits, 1):
+                        st.markdown(f"**Chunk {i}:** {hit}")
+                elif isinstance(hits, str) and hits:
+                    st.markdown(hits)
+                else:
+                    st.info("No policy hits retrieved (or empty policy collection triggered fail-closed).")
+
+            # Full ClaimPacket State JSON
+            with st.expander("🔍 Complete LangGraph State Contract (ClaimPacket)", expanded=False):
+                st.json(result)
+        else:
+            st.info("👈 Select a preset on the left and click **'Invoke LangGraph Desk'** to execute verification.")
