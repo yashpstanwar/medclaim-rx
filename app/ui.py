@@ -330,3 +330,59 @@ with tab1:
                 st.json(result)
         else:
             st.info("👈 Select a preset on the left and click **'Invoke LangGraph Desk'** to execute verification.")
+
+
+# ==========================================
+# TAB 2: Golden Set Benchmark Exam (G01–G05)
+# ==========================================
+from eval.run_golden import CASES, run_case
+import pandas as pd
+
+with tab2:
+    st.subheader("🧪 Golden Set Benchmark Examination")
+    st.markdown(
+        "Runs the **5 frozen golden test cases** through the deterministic LangGraph pipeline. "
+        "Strict standard: **100% Pass Rate (0% False Approvals)**."
+    )
+
+    run_exam_btn = st.button("▶️ Execute Full Golden Set Exam", type="primary")
+
+    if run_exam_btn:
+        exam_results = []
+        with st.spinner("Running 5 Golden Benchmark Cases..."):
+            for case in CASES:
+                outcome = run_case(case)
+                exam_results.append({
+                    "Case ID": outcome["id"],
+                    "Scenario": outcome["description"],
+                    "Expected Status": outcome["expected_status"],
+                    "Actual Status": outcome["actual_status"],
+                    "Expected Gate": outcome["expected_gate"],
+                    "Actual Gate": outcome["actual_gate"],
+                    "Result": "✅ PASS" if outcome["passed"] else "❌ FAIL",
+                })
+        st.session_state["golden_exam_results"] = exam_results
+
+    saved_exam = st.session_state.get("golden_exam_results")
+    if saved_exam:
+        df = pd.DataFrame(saved_exam)
+        passed_count = sum(1 for r in saved_exam if r["Result"] == "✅ PASS")
+        total_cases = len(saved_exam)
+        pct = (passed_count / total_cases) * 100.0
+
+        p1, p2, p3 = st.columns(3)
+        with p1:
+            st.metric("Total Cases", total_cases)
+        with p2:
+            st.metric("Passed Cases", f"{passed_count}/{total_cases}")
+        with p3:
+            st.metric("Overall Score", f"{pct:.1f}%")
+
+        if passed_count == total_cases:
+            st.success("🎉 ALL GOLDEN CASES PASSED: 100% Compliance with Clinical Safety Invariants!")
+        else:
+            st.error("⚠️ REGRESSION DETECTED: One or more safety gates failed.")
+
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("Click **'Execute Full Golden Set Exam'** to run the 5 benchmark cases.")
