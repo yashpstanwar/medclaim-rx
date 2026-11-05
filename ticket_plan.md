@@ -22,7 +22,7 @@
                    [T-06: Test Suite & Golden Regression] [x]
                                │
                                ▼
-                   [T-07: Streamlit Reviewer UI] [ ]
+                   [T-07: Streamlit Reviewer UI] [x]
 ```
 
 ---
@@ -116,12 +116,12 @@
 
 ---
 
-### [ ] T-07: Streamlit Clinical Reviewer UI & Audit Dashboard
-- **Status:** Planned (Sprint 2D)
+### [x] T-07: Streamlit Clinical Reviewer UI & Audit Dashboard
+- **Status:** Complete (Day 2)
 - **Dependencies:** T-05, T-06
 - **Objective:** Develop an interactive web interface for pharmacy clerks and clinical reviewers.
 - **Key Deliverables:**
   - `app/ui.py` (Streamlit interface for prescription input, real-time gate visualization, and audit inspection).
 - **Acceptance Criteria:**
-  - [ ] Provides quick test slip templates (G01 through G06).
-  - [ ] Displays status badge, station pills, RAG evidence, and JSON trace diary.
+  - [x] Provides quick test slip templates (G01 through G06).
+  - [x] Displays status badge, station pills, RAG evidence, and JSON trace diary.
