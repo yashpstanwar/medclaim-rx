@@ -97,3 +97,30 @@ def policy_node(state: ClaimPacket) -> Dict[str, Any]:
         "policy_hits": hits,
         "trace": policy_trace,
     }
+
+
+def route_node(state: ClaimPacket) -> Dict[str, Any]:
+    """Station 3: Final disposition, SQLite persistence & PII-safe JSONL audit logging."""
+    current_status = state.get("status", "pending")
+    final_status = (
+        "needs_pharmacist_review"
+        if current_status == "needs_pharmacist_review"
+        else "ready_to_dispense"
+    )
+
+    current_trace = list(state.get("trace") or [])
+    final_trace = current_trace + ["route"]
+
+    # Construct complete packet for persistence
+    final_packet = dict(state)
+    final_packet["status"] = final_status
+    final_packet["trace"] = final_trace
+
+    # Persist to SQLite strong-room and write PII-safe JSONL trace
+    save_claim(final_packet)  # type: ignore
+    write_trace(final_packet)
+
+    return {
+        "status": final_status,
+        "trace": final_trace,
+    }
