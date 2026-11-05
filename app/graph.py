@@ -124,3 +124,32 @@ def route_node(state: ClaimPacket) -> Dict[str, Any]:
         "status": final_status,
         "trace": final_trace,
     }
+
+
+def create_medclaim_graph():
+    """Build and compile the 3-station LangGraph workflow."""
+    builder = StateGraph(ClaimPacket)
+
+    # Register the 3 stations
+    builder.add_node("extract", extract_node)
+    builder.add_node("policy", policy_node)
+    builder.add_node("route", route_node)
+
+    # Linear deterministic pipeline edges: START -> extract -> policy -> route -> END
+    builder.add_edge(START, "extract")
+    builder.add_edge("extract", "policy")
+    builder.add_edge("policy", "route")
+    builder.add_edge("route", END)
+
+    return builder.compile()
+
+
+# Auto-seed SQLite strong-room and ChromaDB policy handbook on module initialization
+try:
+    seed_db()
+    seed_policy()
+except Exception:
+    pass
+
+# Compiled LangGraph workflow instance
+graph = create_medclaim_graph()
