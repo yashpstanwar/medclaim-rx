@@ -80,3 +80,20 @@ def policy_node(state: ClaimPacket) -> Dict[str, Any]:
             "policy_hits": hits,
             "trace": policy_trace,
         }
+
+    # Gate 5: High-cost biologic / specialty cost gate
+    if float(state.get("cost_inr", 0.0)) >= COST_GATE:
+        return {
+            "status": "needs_pharmacist_review",
+            "gate": "high_cost_gate",
+            "policy_hits": hits,
+            "trace": policy_trace,
+        }
+
+    # All gates passed: ready for final routing
+    return {
+        "status": "ok_for_route",
+        "gate": "none",
+        "policy_hits": hits,
+        "trace": policy_trace,
+    }
