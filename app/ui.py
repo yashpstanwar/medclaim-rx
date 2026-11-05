@@ -106,3 +106,37 @@ DARK_THEME_CSS = """
 </style>
 """
 st.markdown(DARK_THEME_CSS, unsafe_allow_html=True)
+
+
+def fetch_table_rows(query: str, db_path: str = "data/medclaim.db") -> List[Dict[str, Any]]:
+    """Execute read-only SQL query against SQLite strong-room."""
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+
+def read_jsonl_traces(log_path: str = "logs/medclaim.jsonl", limit: int = 50) -> List[Dict[str, Any]]:
+    """Read latest operational trace records from PII-safe JSONL log."""
+    path = Path(log_path)
+    if not path.exists():
+        return []
+    records = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line_clean = line.strip()
+                if line_clean:
+                    try:
+                        records.append(json.loads(line_clean))
+                    except Exception:
+                        pass
+        return list(reversed(records))[:limit]
+    except Exception:
+        return []
