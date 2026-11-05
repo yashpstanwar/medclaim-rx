@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 import json
 from typing import Optional, Dict, Any
 
-LOG_DIR = Path("logs")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+LOG_DIR = ROOT_DIR / "logs"
 LOG_PATH = LOG_DIR / "medclaim.jsonl"
 
 # Ensure logs directory exists on module load

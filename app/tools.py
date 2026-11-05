@@ -13,7 +13,8 @@ from typing import Optional, Dict, Any, List
 from app.packet import ClaimPacket
 from app.memory import retrieve_policy_chunks, DEFAULT_CHROMA_DIR, DEFAULT_COLLECTION_NAME
 
-DEFAULT_DB_PATH = "data/medclaim.db"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_DB_PATH = str(ROOT_DIR / "data" / "medclaim.db")
 
 
 class LookupResult(str):

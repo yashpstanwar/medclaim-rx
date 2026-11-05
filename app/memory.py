@@ -13,9 +13,10 @@ import re
 
 # Model constant as specified
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_COLLECTION_NAME = "clinical_policies"
-DEFAULT_CHROMA_DIR = ".chroma"
-DEFAULT_POLICY_PATH = "data/clinical_policy.md"
+DEFAULT_CHROMA_DIR = str(ROOT_DIR / ".chroma")
+DEFAULT_POLICY_PATH = str(ROOT_DIR / "data" / "clinical_policy.md")
 
 try:
     import chromadb

@@ -6,11 +6,29 @@ Interactive Streamlit Console featuring:
   - Tab 3: Observability Diary & Strong-Room Ledger
 """
 
-import streamlit as st
+import sys
+from pathlib import Path
+
+# Ensure project root is present in sys.path so 'app' and 'eval' packages import smoothly on Streamlit Cloud
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import json
 import sqlite3
-from pathlib import Path
 from typing import Dict, Any, List
+import streamlit as st
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+from app.graph import graph, COST_GATE, CONF_GATE
+from app.packet import ClaimPacket, create_claim_packet
+from app.tools import seed_db, DEFAULT_DB_PATH
+from app.memory import seed_policy, get_chroma_client, DEFAULT_COLLECTION_NAME
+from eval.run_golden import CASES, run_case
 
 # Page Configuration
 st.set_page_config(
@@ -107,8 +125,10 @@ DARK_THEME_CSS = """
 """
 st.markdown(DARK_THEME_CSS, unsafe_allow_html=True)
 
+DEFAULT_LOG_PATH = str(ROOT_DIR / "logs" / "medclaim.jsonl")
 
-def fetch_table_rows(query: str, db_path: str = "data/medclaim.db") -> List[Dict[str, Any]]:
+
+def fetch_table_rows(query: str, db_path: str = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
     """Execute read-only SQL query against SQLite strong-room."""
     try:
         conn = sqlite3.connect(db_path)
@@ -122,7 +142,7 @@ def fetch_table_rows(query: str, db_path: str = "data/medclaim.db") -> List[Dict
         return []
 
 
-def read_jsonl_traces(log_path: str = "logs/medclaim.jsonl", limit: int = 50) -> List[Dict[str, Any]]:
+def read_jsonl_traces(log_path: str = DEFAULT_LOG_PATH, limit: int = 50) -> List[Dict[str, Any]]:
     """Read latest operational trace records from PII-safe JSONL log."""
     path = Path(log_path)
     if not path.exists():
@@ -141,9 +161,6 @@ def read_jsonl_traces(log_path: str = "logs/medclaim.jsonl", limit: int = 50) ->
     except Exception:
         return []
 
-from app.graph import graph, COST_GATE, CONF_GATE
-from app.tools import seed_db
-from app.memory import seed_policy, get_chroma_client, DEFAULT_COLLECTION_NAME
 
 # Sidebar: Governance & Strong-Room Status
 with st.sidebar:
@@ -183,8 +200,6 @@ with st.sidebar:
         chunks_seeded = seed_policy()
         st.success(f"Strong-room re-seeded ({chunks_seeded} policy chunks).")
         st.rerun()
-
-from app.packet import create_claim_packet
 
 PRESETS = {
     "G01: Clean Routine Antibiotic (Amoxicillin ₹1,450)": (
@@ -335,9 +350,6 @@ with tab1:
 # ==========================================
 # TAB 2: Golden Set Benchmark Exam (G01–G05)
 # ==========================================
-from eval.run_golden import CASES, run_case
-import pandas as pd
-
 with tab2:
     st.subheader("🧪 Golden Set Benchmark Examination")
     st.markdown(
@@ -365,7 +377,6 @@ with tab2:
 
     saved_exam = st.session_state.get("golden_exam_results")
     if saved_exam:
-        df = pd.DataFrame(saved_exam)
         passed_count = sum(1 for r in saved_exam if r["Result"] == "✅ PASS")
         total_cases = len(saved_exam)
         pct = (passed_count / total_cases) * 100.0
@@ -383,7 +394,10 @@ with tab2:
         else:
             st.error("⚠️ REGRESSION DETECTED: One or more safety gates failed.")
 
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        if pd is not None:
+            st.dataframe(pd.DataFrame(saved_exam), use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(saved_exam, use_container_width=True)
     else:
         st.info("Click **'Execute Full Golden Set Exam'** to run the 5 benchmark cases.")
 
@@ -403,8 +417,10 @@ with tab3:
 
         traces = read_jsonl_traces(limit=50)
         if traces:
-            trace_df = pd.DataFrame(traces)
-            st.dataframe(trace_df, use_container_width=True, hide_index=True)
+            if pd is not None:
+                st.dataframe(pd.DataFrame(traces), use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(traces, use_container_width=True)
         else:
             st.info("No trace entries found in logs/medclaim.jsonl yet. Run a claim to record traces.")
 
@@ -418,8 +434,10 @@ with tab3:
 
         rows = fetch_table_rows(f"SELECT * FROM {selected_table} ORDER BY rowid DESC LIMIT 100")
         if rows:
-            table_df = pd.DataFrame(rows)
-            st.dataframe(table_df, use_container_width=True, hide_index=True)
+            if pd is not None:
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(rows, use_container_width=True)
             st.caption(f"Showing up to 100 recent rows from table `{selected_table}`.")
         else:
             st.info(f"Table `{selected_table}` is currently empty.")
