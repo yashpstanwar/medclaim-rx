@@ -16,6 +16,24 @@ from app.memory import retrieve_policy_chunks, DEFAULT_CHROMA_DIR, DEFAULT_COLLE
 DEFAULT_DB_PATH = "data/medclaim.db"
 
 
+class LookupResult(str):
+    """String result that supports prefix matching (KNOWN:... / FOUND:...)
+    and dictionary-style attribute access for backwards compatibility."""
+
+    def __new__(cls, val: str, data: Optional[Dict[str, Any]] = None):
+        obj = super().__new__(cls, val)
+        obj._data = dict(data) if data else {}
+        return obj
+
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, str) and key in self._data:
+            return self._data[key]
+        return super().__getitem__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+
 def get_db_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Create a SQLite connection pointing to db_path with Row factory enabled."""
     db_file = Path(db_path)
@@ -138,7 +156,7 @@ def seed_db(db_path: str = DEFAULT_DB_PATH) -> None:
 
 def check_license(
     license_no: str, db_path: str = DEFAULT_DB_PATH
-) -> Optional[Dict[str, Any]]:
+) -> str:
     """Query authoritative prescriber registry using bound SQL parameter.
 
     Args:
@@ -146,10 +164,10 @@ def check_license(
         db_path: Path to medclaim.db.
 
     Returns:
-        Prescriber record as a dictionary if found, else None.
+        'KNOWN:<doctor_name>' on hit, or 'UNKNOWN' on miss.
     """
     if not license_no or not license_no.strip():
-        return None
+        return LookupResult("UNKNOWN")
 
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
@@ -161,13 +179,13 @@ def check_license(
     conn.close()
 
     if row:
-        return dict(row)
-    return None
+        return LookupResult(f"KNOWN:{row['doctor_name']}", dict(row))
+    return LookupResult("UNKNOWN")
 
 
 def lookup_formulary(
     drug_code: str, db_path: str = DEFAULT_DB_PATH
-) -> Optional[Dict[str, Any]]:
+) -> str:
     """Query hospital formulary master using bound SQL parameter.
 
     Args:
@@ -175,10 +193,10 @@ def lookup_formulary(
         db_path: Path to medclaim.db.
 
     Returns:
-        Formulary item record as a dictionary if found, else None.
+        'FOUND:<drug_name>' on hit, or 'MISSING' on miss.
     """
     if not drug_code or not drug_code.strip():
-        return None
+        return LookupResult("MISSING")
 
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
@@ -194,8 +212,8 @@ def lookup_formulary(
     conn.close()
 
     if row:
-        return dict(row)
-    return None
+        return LookupResult(f"FOUND:{row['drug_name']}", dict(row))
+    return LookupResult("MISSING")
 
 
 def retrieve_policy(

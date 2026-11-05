@@ -36,43 +36,47 @@ class TestTools(unittest.TestCase):
         self.assertIn("claims", tables)
 
     def test_check_license_verified_prescribers(self):
-        # Dr. Sharma
+        # Dr. Sharma - returns 'KNOWN:...'
         doc1 = check_license("NMC-2019-4410", db_path=self.db_path)
-        self.assertIsNotNone(doc1)
+        self.assertTrue(doc1.startswith("KNOWN:"))
+        self.assertEqual(doc1, "KNOWN:Dr. Sharma")
         self.assertEqual(doc1["doctor_name"], "Dr. Sharma")
         self.assertEqual(doc1["status"], "ACTIVE")
 
-        # Dr. Verma
+        # Dr. Verma - returns 'KNOWN:...'
         doc2 = check_license("NMC-2016-8821", db_path=self.db_path)
-        self.assertIsNotNone(doc2)
+        self.assertTrue(doc2.startswith("KNOWN:"))
+        self.assertEqual(doc2, "KNOWN:Dr. Verma")
         self.assertEqual(doc2["doctor_name"], "Dr. Verma")
         self.assertEqual(doc2["status"], "ACTIVE")
 
     def test_check_license_unregistered_mismatch_fails(self):
-        # NMC-99INVALID must NOT be seeded and must return None
+        # NMC-99INVALID must NOT be seeded and must return UNKNOWN
         doc_invalid = check_license("NMC-99INVALID", db_path=self.db_path)
-        self.assertIsNone(doc_invalid)
+        self.assertEqual(doc_invalid, "UNKNOWN")
 
-        # Blank or empty returns None
-        self.assertIsNone(check_license("", db_path=self.db_path))
+        # Blank or empty returns UNKNOWN
+        self.assertEqual(check_license("", db_path=self.db_path), "UNKNOWN")
 
     def test_lookup_formulary_drugs(self):
-        # Amoxicillin (Tier 1, standard)
+        # Amoxicillin (Tier 1, standard) - returns 'FOUND:...'
         amox = lookup_formulary("RX-AMOX-500", db_path=self.db_path)
-        self.assertIsNotNone(amox)
+        self.assertTrue(amox.startswith("FOUND:"))
         self.assertEqual(amox["tier"], 1)
         self.assertEqual(amox["is_formulary"], 1)
         self.assertEqual(amox["requires_cmo"], 0)
 
-        # Adalimumab (Tier 3, Biologic requiring CMO)
+        # Adalimumab (Tier 3, Biologic requiring CMO) - returns 'FOUND:...'
         adal = lookup_formulary("RX-ADAL-40", db_path=self.db_path)
-        self.assertIsNotNone(adal)
+        self.assertTrue(adal.startswith("FOUND:"))
         self.assertEqual(adal["tier"], 3)
         self.assertEqual(adal["requires_cmo"], 1)
 
     def test_lookup_formulary_unlisted_drug_fails(self):
+        # Missing drug returns 'MISSING'
         unlisted = lookup_formulary("RX-UNKNOWN-999", db_path=self.db_path)
-        self.assertIsNone(unlisted)
+        self.assertEqual(unlisted, "MISSING")
+        self.assertEqual(lookup_formulary("", db_path=self.db_path), "MISSING")
 
     def test_save_claim_persistence(self):
         packet = create_claim_packet(
