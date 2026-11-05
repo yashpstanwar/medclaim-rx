@@ -36,3 +36,27 @@ def extract_node(state: ClaimPacket) -> Dict[str, Any]:
         "status": "extracted",
         "trace": updated_trace,
     }
+
+
+def policy_node(state: ClaimPacket) -> Dict[str, Any]:
+    """Station 2: Clinical Policy, Licensure, and Formulary Verification."""
+    current_trace = list(state.get("trace") or [])
+    policy_trace = current_trace + ["policy"]
+
+    # Gate 1: Extraction confidence check
+    if state.get("confidence", 0.0) < CONF_GATE:
+        return {
+            "status": "needs_pharmacist_review",
+            "gate": "needs_typecheck",
+            "trace": policy_trace,
+        }
+
+    # Gate 2: ChromaDB RAG policy retrieval & fail-closed empty shelf check
+    hits = retrieve_policy("NMC license verification formulary and high cost biologic stamp rules")
+    if not hits:
+        return {
+            "status": "needs_pharmacist_review",
+            "gate": "empty_policy",
+            "policy_hits": "",
+            "trace": policy_trace,
+        }
