@@ -23,8 +23,8 @@ CONF_GATE: float = 0.80
 def extract_node(state: ClaimPacket) -> Dict[str, Any]:
     """Station 1: Extract clinical parameters from raw prescription slip text."""
     parsed = parse_labelled(state.get("raw_text", ""))
-    current_trace = list(state.get("trace") or [])
-    updated_trace = current_trace + ["extract"]
+    existing_trace = [t for t in (state.get("trace") or []) if t != "INTAKE"]
+    updated_trace = existing_trace + ["extract"] if "extract" not in existing_trace else existing_trace
     return {
         "prescriber": parsed.get("prescriber", ""),
         "license_no": parsed.get("license_no", ""),
