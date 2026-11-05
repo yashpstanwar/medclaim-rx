@@ -52,3 +52,41 @@ MedClaim Rx combines deterministic Python gating, relational verification regist
   1. `prescribers`: Authoritative NMC doctor license status.
   2. `formulary`: Whitelisted hospital drug codes, therapeutic classes, and pricing tiers.
   3. `claims`: Historical adjudication records with gate outcomes and timestamps.
+
+---
+
+## 3. Directional System Flowchart
+
+The following Mermaid diagram traces an incoming prescription slip through the deterministic verification graph:
+
+```mermaid
+flowchart TD
+    A["Raw Prescription Slip\n(Labelled Slip or Prose Note)"] --> B["extract_node\n(Regex/Labelled Parser or LLM)"]
+    
+    B --> C{"Confidence Check\nconf >= 0.80?"}
+    C -- "No (conf < 0.80)" --> R1["route_node:\npharmacist_review_needed\n(Low Confidence / Missing Cost)"]
+    
+    C -- "Yes" --> D["policy_node\n(Clinical Strong-Room & RAG)"]
+    
+    subgraph Data_Verification["Strong-Room & RAG Lookups"]
+        D --> E1["SQLite Query:\ncheck_license(license_no)"]
+        D --> E2["SQLite Query:\nlookup_formulary(drug_code)"]
+        D --> E3["ChromaDB Query:\nretrieve_policy_chunks(...)"]
+    end
+    
+    E1 --> F{"Prescriber Valid\n& ACTIVE?"}
+    F -- "No / Unregistered" --> R2["route_node:\nrejected_invalid\n(Unverified NMC License)"]
+    
+    F -- "Yes" --> G{"Drug on\nFormulary?"}
+    G -- "No / Off-Formulary" --> R3["route_node:\npharmacist_review_needed\n(Therapeutic Substitution Required)"]
+    
+    G -- "Yes" --> H{"High-Cost Gate\ncost >= ₹25,000?"}
+    H -- "Yes" --> R4["route_node:\ncmo_review_needed\n(Chief Medical Officer Biologic Stamp Required)"]
+    H -- "No" --> R5["route_node:\nready_to_dispense\n(Recommended for Pharmacist Dispensation)"]
+    
+    R1 --> Z["Persist to SQLite & JSONL\nsave_claim(packet)"]
+    R2 --> Z
+    R3 --> Z
+    R4 --> Z
+    R5 --> Z
+```
