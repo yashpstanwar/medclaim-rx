@@ -35,4 +35,17 @@ CASES: List[Dict[str, Any]] = [
         "expected_status": "needs_pharmacist_review",
         "expected_gate": "high_cost_gate",
     },
+    {
+        "id": "G03_BAD_LICENSE",
+        "description": "Unregistered / Fraudulent Doctor License (Dr. Ghost, NMC-99INVALID)",
+        "raw": (
+            "Prescriber: Dr. Ghost\n"
+            "License: NMC-99INVALID\n"
+            "Drug: RX-AMOX-500\n"
+            "Diagnosis: Bronchitis\n"
+            "Cost: ₹900.00"
+        ),
+        "expected_status": "needs_pharmacist_review",
+        "expected_gate": "license_mismatch",
+    },
 ]
