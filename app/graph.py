@@ -60,3 +60,23 @@ def policy_node(state: ClaimPacket) -> Dict[str, Any]:
             "policy_hits": "",
             "trace": policy_trace,
         }
+
+    # Gate 3: Prescriber NMC license verification
+    license_result = check_license(state.get("license_no", ""))
+    if str(license_result).startswith("UNKNOWN"):
+        return {
+            "status": "needs_pharmacist_review",
+            "gate": "license_mismatch",
+            "policy_hits": hits,
+            "trace": policy_trace,
+        }
+
+    # Gate 4: Hospital formulary verification
+    formulary_result = lookup_formulary(state.get("drug_code", ""))
+    if str(formulary_result).startswith("MISSING"):
+        return {
+            "status": "needs_pharmacist_review",
+            "gate": "non_formulary",
+            "policy_hits": hits,
+            "trace": policy_trace,
+        }
