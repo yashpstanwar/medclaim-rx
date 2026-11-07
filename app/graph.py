@@ -1,11 +1,12 @@
 """MedClaim Rx LangGraph 3-Station Core Workflow Engine.
 
 Orchestrates deterministic prescription claim intake across 3 stations:
-  1. extract_node (Deterministic labelled slip parsing)
+  1. extract_node (Deterministic labelled slip parsing & route classification)
   2. policy_node (SQLite registers, Chroma RAG guidelines & clinical gates)
-  3. route_node (Final disposition, SQLite audit ledger & PII-safe JSONL log)
+  3. route_node (Final disposition, latency measurement, SQLite audit ledger & PII-safe JSONL log)
 """
 
+import time
 from typing import Dict, Any, List
 from langgraph.graph import StateGraph, START, END
 
@@ -14,6 +15,7 @@ from app.extract_lab import parse_labelled
 from app.tools import check_license, lookup_formulary, retrieve_policy, save_claim, seed_db
 from app.memory import seed_policy
 from app.log import write_trace
+from app.router import classify_request
 
 # Deterministic Clinical Gating Constants
 COST_GATE: float = 25000.0
@@ -22,9 +24,12 @@ CONF_GATE: float = 0.80
 
 def extract_node(state: ClaimPacket) -> Dict[str, Any]:
     """Station 1: Extract clinical parameters from raw prescription slip text."""
+    start_time = time.perf_counter()
     parsed = parse_labelled(state.get("raw_text", ""))
     existing_trace = [t for t in (state.get("trace") or []) if t != "INTAKE"]
     updated_trace = existing_trace + ["extract"] if "extract" not in existing_trace else existing_trace
+    route_cat = state.get("route_category") or classify_request(state.get("raw_text", ""))
+
     return {
         "prescriber": parsed.get("prescriber", ""),
         "license_no": parsed.get("license_no", ""),
@@ -35,6 +40,8 @@ def extract_node(state: ClaimPacket) -> Dict[str, Any]:
         "prompt_version": parsed.get("prompt_version", "lab_labels_v1"),
         "status": "extracted",
         "trace": updated_trace,
+        "route_category": route_cat,
+        "_start_time": start_time,
     }
 
 
@@ -100,7 +107,13 @@ def policy_node(state: ClaimPacket) -> Dict[str, Any]:
 
 
 def route_node(state: ClaimPacket) -> Dict[str, Any]:
-    """Station 3: Final disposition, SQLite persistence & PII-safe JSONL audit logging."""
+    """Station 3: Final disposition, latency recording, SQLite persistence & PII-safe JSONL audit logging."""
+    start_time = state.get("_start_time")
+    if start_time:
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
+    else:
+        latency_ms = 1.0
+
     current_status = state.get("status", "pending")
     final_status = (
         "needs_pharmacist_review"
@@ -110,11 +123,14 @@ def route_node(state: ClaimPacket) -> Dict[str, Any]:
 
     current_trace = list(state.get("trace") or [])
     final_trace = current_trace + ["route"]
+    route_cat = state.get("route_category") or "claim_investigation"
 
     # Construct complete packet for persistence
     final_packet = dict(state)
     final_packet["status"] = final_status
     final_packet["trace"] = final_trace
+    final_packet["latency_ms"] = round(latency_ms, 3)
+    final_packet["route_category"] = route_cat
 
     # Persist to SQLite strong-room and write PII-safe JSONL trace
     save_claim(final_packet)  # type: ignore
@@ -123,6 +139,8 @@ def route_node(state: ClaimPacket) -> Dict[str, Any]:
     return {
         "status": final_status,
         "trace": final_trace,
+        "latency_ms": round(latency_ms, 3),
+        "route_category": route_cat,
     }
 
 

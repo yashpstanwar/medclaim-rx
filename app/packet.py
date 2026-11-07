@@ -7,7 +7,7 @@ from typing import TypedDict, List, Optional
 import uuid
 
 
-class ClaimPacket(TypedDict):
+class ClaimPacket(TypedDict, total=False):
     """Strongly-typed claim packet state contract.
 
     Attributes:
@@ -29,6 +29,8 @@ class ClaimPacket(TypedDict):
         policy_hits: List of semantic clinical policy snippets retrieved from ChromaDB.
         trace: Chronological audit trail of visited pipeline nodes and decisions.
         prompt_version: Identifier of the prompt or parser version used.
+        latency_ms: Execution elapsed time in milliseconds.
+        route_category: Operational category determined by zero-cost router.
     """
 
     # Identity Fields
@@ -49,6 +51,9 @@ class ClaimPacket(TypedDict):
     policy_hits: List[str]
     trace: List[str]
     prompt_version: str
+    latency_ms: float
+    route_category: str
+    _start_time: float
 
 
 def create_claim_packet(
@@ -65,6 +70,8 @@ def create_claim_packet(
     trace: Optional[List[str]] = None,
     prompt_version: str = "v1.0",
     claim_id: Optional[str] = None,
+    latency_ms: float = 0.0,
+    route_category: str = "claim_investigation",
 ) -> ClaimPacket:
     """Factory helper to construct a properly typed ClaimPacket with defaults."""
     return ClaimPacket(
@@ -81,4 +88,6 @@ def create_claim_packet(
         policy_hits=list(policy_hits) if policy_hits is not None else [],
         trace=list(trace) if trace is not None else ["INTAKE"],
         prompt_version=prompt_version,
+        latency_ms=float(latency_ms),
+        route_category=route_category,
     )
