@@ -215,18 +215,45 @@ st.markdown(
         font-size: 0.82rem !important;
         border-radius: 5px !important;
     }
-    .stButton > button {
-        background-color: #EDEDEF !important;
-        color: #090A0F !important;
-        border: none !important;
+    /* Secondary / Default Buttons (Reset DB, etc.) */
+    .stButton > button,
+    .stButton > button[kind="secondary"],
+    button[data-testid="baseButton-secondary"] {
+        background-color: #141720 !important;
+        color: #D1D5DB !important;
+        border: 1px solid #262936 !important;
         border-radius: 5px !important;
         font-weight: 500 !important;
         font-size: 0.82rem !important;
         padding: 0.5rem 1rem !important;
+        transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .stButton > button:hover,
+    .stButton > button[kind="secondary"]:hover,
+    button[data-testid="baseButton-secondary"]:hover {
+        background-color: #1A1E2A !important;
+        color: #FFFFFF !important;
+        border-color: #353A4C !important;
+        opacity: 1.0 !important;
+    }
+
+    /* Primary Action Buttons (Execute Triage Graph, Run Golden Suite) */
+    .stButton > button[kind="primary"],
+    button[data-testid="baseButton-primary"] {
+        background-color: #EDEDEF !important;
+        color: #090A0F !important;
+        border: 1px solid #EDEDEF !important;
+        border-radius: 5px !important;
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        padding: 0.5rem 1rem !important;
         transition: opacity 0.15s ease;
     }
-    .stButton > button:hover {
+    .stButton > button[kind="primary"]:hover,
+    button[data-testid="baseButton-primary"]:hover {
         opacity: 0.9 !important;
+        background-color: #FFFFFF !important;
+        color: #090A0F !important;
     }
     div[data-testid="stTabs"] button {
         font-size: 0.82rem !important;
@@ -325,6 +352,9 @@ with tab_workbench:
     with left_col:
         st.markdown('<div class="sec-label">01 / Prescription Input</div>', unsafe_allow_html=True)
         chosen = st.selectbox("Scenario Preset", list(presets.keys()), label_visibility="collapsed")
+        preset_changed = chosen != st.session_state.get("last_preset")
+        if preset_changed:
+            st.session_state["last_preset"] = chosen
 
         c1, c2 = st.columns([2, 1])
         with c1:
@@ -338,12 +368,13 @@ with tab_workbench:
         raw_slip = st.text_area(
             "Prescription Slip Payload",
             value=presets[chosen],
+            key=f"raw_slip_{chosen}",
             height=175,
             label_visibility="collapsed",
         )
 
-        run_clicked = st.button("Execute Triage Graph", use_container_width=True)
-        if run_clicked or "active_packet" not in st.session_state:
+        run_clicked = st.button("Execute Triage Graph", use_container_width=True, type="primary")
+        if run_clicked or preset_changed or "active_packet" not in st.session_state:
             st.session_state["active_packet"] = graph.invoke(
                 {"claim_id": claim_id.strip() or "CLM-01", "raw_text": raw_slip, "trace": []}
             )
@@ -361,9 +392,16 @@ with tab_workbench:
             [f'<span class="walk-step">{node}</span>' for node in trace]
         )
 
-        hits_raw = pkt.get("policy_hits", "")
-        if hits_raw:
-            quotes_html = "".join([f'<div class="policy-quote">{q}</div>' for q in hits_raw.split(" | ")])
+        hits_raw = pkt.get("policy_hits") or []
+        if isinstance(hits_raw, str):
+            hits_list = [q.strip() for q in hits_raw.split(" | ") if q.strip()]
+        elif isinstance(hits_raw, list):
+            hits_list = [str(q).strip() for q in hits_raw if str(q).strip()]
+        else:
+            hits_list = []
+
+        if hits_list:
+            quotes_html = "".join([f'<div class="policy-quote">{q}</div>' for q in hits_list])
         else:
             quotes_html = '<div class="policy-quote">No policy chunks retrieved (stopped prior to RAG or empty collection).</div>'
 
@@ -412,7 +450,7 @@ with tab_workbench:
 # ===========================================================================
 with tab_eval:
     st.markdown('<div class="sec-label">Regression Benchmark Suite (eval/run_golden.py)</div>', unsafe_allow_html=True)
-    if st.button("Run Golden Suite (G01 - G05)"):
+    if st.button("Run Golden Suite (G01 - G05)", type="primary"):
         results = []
         for case in CASES:
             out = graph.invoke({"claim_id": case["id"], "raw_text": case["raw"], "trace": []})
