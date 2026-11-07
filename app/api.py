@@ -35,13 +35,15 @@ class TriageRequest(BaseModel):
     raw_text: str = Field(
         ...,
         description="Prescription slip text or clinical triage note.",
-        example=(
-            "Prescriber: Dr. Sharma\n"
-            "License: NMC-2019-4410\n"
-            "Drug: RX-AMOX-500\n"
-            "Diagnosis: Bacterial Sinusitis\n"
-            "Cost: INR 1,450.00"
-        ),
+        json_schema_extra={
+            "example": (
+                "Prescriber: Dr. Sharma\n"
+                "License: NMC-2019-4410\n"
+                "Drug: RX-AMOX-500\n"
+                "Diagnosis: Bacterial Sinusitis\n"
+                "Cost: INR 1,450.00"
+            )
+        },
     )
     claim_id: Optional[str] = Field(None, description="Optional custom claim identifier.")
 
@@ -50,7 +52,7 @@ class ActionGateRequest(BaseModel):
     command: str = Field(
         ...,
         description="Action command or clinical inquiry.",
-        example="Approve routine antibiotic Amoxicillin for ₹1,450",
+        json_schema_extra={"example": "Approve routine antibiotic Amoxicillin for ₹1,450"},
     )
     role: str = Field("operator", description="User role: 'operator' or 'cmo_approver'.")
     cost_inr: float = Field(0.0, description="Cost of the associated claim in INR.")

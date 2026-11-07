@@ -1,4 +1,4 @@
-"""Unit tests for ChromaDB Clinical Policy RAG Memory and fail-closed behavior."""
+"""Unit tests for ChromaDB Clinical Policy RAG Memory, Synonym Expansion, and Threshold Filtering."""
 
 import unittest
 import tempfile
@@ -8,6 +8,10 @@ from app.memory import (
     seed_policy,
     retrieve_policy_chunks,
     reset_policy_collection,
+    expand_query_synonyms,
+    CLINICAL_SYNONYMS,
+    DEFAULT_THRESHOLD,
+    STRICT_THRESHOLD,
     DEFAULT_COLLECTION_NAME,
 )
 
@@ -68,6 +72,65 @@ Specialty biologics falling under Tier 3 require explicit CMO prior-authorizatio
                 policy_path="data/non_existent_policy.md",
                 persist_dir=self.persist_dir,
             )
+
+    def test_expand_query_synonyms_biologic(self):
+        expanded = expand_query_synonyms("biologic approval")
+        self.assertIn("adalimumab", expanded)
+        self.assertIn("high-cost", expanded)
+        self.assertTrue(expanded.startswith("biologic approval"))
+
+    def test_expand_query_synonyms_license(self):
+        expanded = expand_query_synonyms("doctor license")
+        self.assertIn("nmc", expanded)
+        self.assertIn("prescriber", expanded)
+
+    def test_expand_query_synonyms_empty_or_whitespace(self):
+        self.assertEqual(expand_query_synonyms(""), "")
+        self.assertEqual(expand_query_synonyms("   "), "   ")
+
+    def test_retrieve_with_threshold_filtering(self):
+        collection_name = "test_threshold_policies"
+        seed_policy(
+            policy_path=self.policy_path,
+            persist_dir=self.persist_dir,
+            collection_name=collection_name,
+        )
+
+        # Lenient threshold should retrieve chunks
+        chunks_lenient = retrieve_policy_chunks(
+            query="biologic stamp",
+            persist_dir=self.persist_dir,
+            collection_name=collection_name,
+            threshold=STRICT_THRESHOLD,
+        )
+        self.assertTrue(len(chunks_lenient) > 0)
+
+        # Impossible/extreme threshold should filter out low similarity
+        chunks_strict = retrieve_policy_chunks(
+            query="completely unrelated astronomy telescope query",
+            persist_dir=self.persist_dir,
+            collection_name=collection_name,
+            threshold=0.95,
+        )
+        self.assertEqual(chunks_strict, [])
+
+    def test_synonym_expansion_retrieval(self):
+        collection_name = "test_synonym_policies"
+        seed_policy(
+            policy_path=self.policy_path,
+            persist_dir=self.persist_dir,
+            collection_name=collection_name,
+        )
+
+        # Query using clinical term 'adalimumab' which expands to 'biologic'
+        chunks = retrieve_policy_chunks(
+            query="adalimumab",
+            persist_dir=self.persist_dir,
+            collection_name=collection_name,
+            expand_synonyms=True,
+        )
+        self.assertTrue(len(chunks) > 0)
+        self.assertTrue(any("Biologics" in c or "biologics" in c.lower() for c in chunks))
 
 
 if __name__ == "__main__":

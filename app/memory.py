@@ -22,15 +22,18 @@ DEFAULT_POLICY_PATH = str(ROOT_DIR / "data" / "clinical_policy.md")
 DEFAULT_THRESHOLD: float = 0.40
 STRICT_THRESHOLD: float = 0.17
 
-# Clinical Domain Synonym Registry
+# Clinical Domain Synonym Registry (Bidirectional clinical expansion)
 CLINICAL_SYNONYMS: dict[str, list[str]] = {
     "biologic": ["adalimumab", "restricted", "high-cost", "immunosuppressive"],
     "biologics": ["adalimumab", "restricted", "high-cost", "immunosuppressive"],
+    "adalimumab": ["biologic", "biologics", "restricted", "high-cost"],
     "license": ["nmc", "registration", "prescriber", "credential"],
     "licensure": ["nmc", "registration", "prescriber", "credential"],
     "stamp": ["approval", "cmo", "override", "prior-auth"],
+    "cmo": ["stamp", "approval", "override", "prior-auth"],
     "formulary": ["whitelisted", "approved", "tier", "catalog"],
     "antibiotic": ["amoxicillin", "anti-infective", "routine"],
+    "amoxicillin": ["antibiotic", "routine", "anti-infective"],
     "doctor": ["physician", "practitioner", "prescriber", "nmc"],
 }
 
