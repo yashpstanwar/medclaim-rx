@@ -93,7 +93,68 @@ flowchart TD
 
 ---
 
-## 4. Security, Hygiene & PII Minimization
+## 4. End-to-End Sequence Diagram
+
+The following sequence diagram details the end-to-end messaging flow across Operator/User, Input Guard, Zero-Cost Request Router, ChromaDB RAG, SQLite Deterministic Tools, 3-Tier Action Gate, and SQLite/JSONL Trace Store:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Operator / Prescriber
+    participant Guard as Input Guard (Sanitization)
+    participant Router as Zero-Cost Request Router
+    participant RAG as ChromaDB RAG Memory
+    participant Tools as SQLite Strong-Room Tools
+    participant Gate as 3-Tier Action Gate
+    participant Store as SQLite / JSONL Trace Store
+
+    User->>Guard: Submit Prescription / Request Text
+    Guard->>Router: Sanitized Input (PII Stripped)
+    Note over Router: 4-Way Zero-LLM Classification:<br/>knowledge_query | status_lookup | claim_investigation | action_command
+
+    alt 1. Knowledge Query
+        Router->>RAG: retrieve_policy_chunks(query, threshold)
+        RAG-->>Router: Top Grounded Policy Chunks
+        Router-->>User: Grounded Clinical Policy Reference
+    else 2. Status Lookup
+        Router->>Tools: check_license / lookup_formulary / claim status
+        Tools-->>Router: Query Results from SQLite Strong-Room
+        Router-->>User: Authoritative Entity Status
+    else 3. Claim Investigation (LangGraph 3-Station Core)
+        Router->>Tools: check_license(license_no)
+        Tools-->>Router: Prescriber Status (KNOWN / UNKNOWN)
+        Router->>Tools: lookup_formulary(drug_code)
+        Tools-->>Router: Formulary Record (FOUND / MISSING)
+        Router->>RAG: retrieve_policy("biologic cost limit...")
+        RAG-->>Router: Relevant Policy Evidence Hits
+        Router->>Store: save_claim() + write_trace()
+        Store-->>Router: Commit Confirmed
+        Router-->>User: Triage Verdict (ready_to_dispense / needs_pharmacist_review)
+    else 4. Action Command (State-Changing Imperative)
+        Router->>Gate: evaluate_action_gate(command, role, cost_inr)
+        alt Tier 1: AUTOMATICALLY_ALLOWED
+            Gate-->>Router: Routine Request Permitted (Cost < ₹25,000)
+            Router->>Store: Append Operational Trace
+            Router-->>User: Action Executed Successfully
+        else Tier 2: CONFIRMATION_REQUIRED
+            Gate-->>Router: Elevated Authorization Required (Biologic >= ₹25,000)
+            alt Role == "cmo_approver"
+                Router->>Store: Record CMO Authorized Override
+                Router-->>User: Override Stamped & Recorded
+            else Role == "operator"
+                Router-->>User: BLOCKED: Requires CMO Approver Authentication
+            end
+        else Tier 3: NEVER_PERMITTED
+            Gate-->>Router: Invariant Violation (e.g. bypass audit, disable license check)
+            Router->>Store: Log Security Exception
+            Router-->>User: SECURITY ALERT: Command Prohibited by Policy
+        end
+    end
+```
+
+---
+
+## 5. Security, Hygiene & PII Minimization
 
 In accordance with healthcare data protection standards:
 
