@@ -1,8 +1,12 @@
 # MedClaim Rx — Clinical Prior-Authorization & Formulary Desk
 
-**Selected Problem Domain: Healthcare Domain** *(LMS Track: Clinical Prior-Authorization & Patient Harm Mitigation)*
-
-> **"MedClaim Rx clears routine clinical prescriptions same-day without recommending approval on an unverified prescriber NMC license, a non-formulary drug, or a skipped high-cost biologic stamp."**
+| Submission Metadata | Submission Details |
+| :--- | :--- |
+| **Selected Problem Domain** | **Healthcare domain** *(Matching LMS Question 1 verbatim)* |
+| **Project Title** | **MedClaim Rx — Clinical Prior-Authorization & Formulary Co-Pilot** |
+| **GitHub Repository** | [https://github.com/yashpstanwar/medclaim-rx](https://github.com/yashpstanwar/medclaim-rx) |
+| **Live Deployed App** | [https://medclaim-rx.streamlit.app/](https://medclaim-rx.streamlit.app/) |
+| **One-Sentence Job Statement** | *"MedClaim Rx clears routine clinical prescriptions same-day without recommending approval on an unverified prescriber NMC license, a non-formulary drug, or a skipped high-cost biologic stamp."* |
 
 [![Live Cloud App](https://img.shields.io/badge/Streamlit%20Cloud-Live%20Console-brightgreen?logo=streamlit)](https://medclaim-rx.streamlit.app/)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
@@ -14,6 +18,22 @@
 [![FastAPI](https://img.shields.io/badge/REST%20API-FastAPI%200.2.0-teal.svg)](https://fastapi.tiangolo.com/)
 [![Docker Stack](https://img.shields.io/badge/Containers-Docker%20Compose-blue.svg)](https://www.docker.com/)
 [![Safety Grade](https://img.shields.io/badge/Safety-Fail--Closed-green.svg)](#)
+
+---
+
+## 📋 LMS Submission Checklist Verification
+
+The following verification matrix demonstrates complete fulfillment of every capstone course requirement:
+
+| Course Requirement | Repository Location / Artifact | Fulfillment Description |
+| :--- | :--- | :--- |
+| **1. Scenario Freeze** | [`spec.md`](spec.md) | Formally freezes the 4 user personas (Clerk, Pharmacist, TPA, CMO Lead), authorized data stores, checkable success criteria (0% false approvals), harm types, and explicit out-of-scope boundaries (no robotic dispensing, no direct payouts). |
+| **2. One-Page Architecture & Sequence Diagram** | [`architecture.md`](architecture.md) | Complete system specification including the 3-drawer memory model, directional LangGraph flowchart, and an end-to-end Mermaid sequence diagram showing message flow across User, Guard, Router, RAG, Tools, 3-Tier Gate, and Store. |
+| **3. LangGraph Core Engine & Versioned Prompts** | [`app/graph.py`](app/graph.py) & [`prompts/`](prompts/) | 3-station state graph (`extract` -> `policy` -> `route`) operating on `ClaimPacket`. Governed by deterministic constants (`COST_GATE = ₹25,000`, `CONF_GATE = 0.80`) and versioned clinical prompts (`prompts/extract_v1.txt`, `prompts/extract_v2.txt`). |
+| **4. Tri-Drawer Memory Architecture** | [`app/packet.py`](app/packet.py), [`app/memory.py`](app/memory.py), [`app/tools.py`](app/tools.py), [`app/log.py`](app/log.py) | **Drawer 1 (Short-term):** TypedDict `ClaimPacket`.<br>**Drawer 2 (Semantic):** ChromaDB with `sentence-transformers/all-MiniLM-L6-v2` & clinical synonym expansion.<br>**Drawer 3 (Episodic):** ACID SQLite `data/medclaim.db` & append-only `logs/medclaim.jsonl`. |
+| **5. Bounded Autonomy & Deterministic Gating** | [`app/graph.py`](app/graph.py) & [`app/router.py`](app/router.py) | Python-enforced gates halt unverified licenses, off-formulary drugs, and high-cost biologics. 3-tier action gate requires CMO role for overrides and permanently blocks Tier 3 invariant violations (e.g. bypassing logs). Zero payout/dispense helpers exist. |
+| **6. Golden Set Regression Exam & Unit Tests** | [`eval/run_golden.py`](eval/run_golden.py) & [`tests/`](tests/) | 5 frozen Golden Cases (G01–G05) with 100% pass rate (0% false approvals). 56 automated unit and adversarial security tests covering prompt injection defense, empty-shelf fail-closed behavior, router classification, and REST endpoints. |
+| **7. Cost & Latency Receipt Analysis** | [`README.md`](README.md) & [`app/ui.py`](app/ui.py) | Deterministic sub-second triage (`~1.2 ms`) at **$0.00** LLM inference cost vs. projected Groq cloud scale (~$0.06–$1.24/month) and local Llama.cpp open-weights inference. Displayed in Streamlit UI and audit logs. |
 
 ---
 
@@ -158,7 +178,7 @@ python -m pytest -v
 ```
 Output:
 ```text
-======================= 56 passed in 2.27s =======================
+======================= 56 passed in 1.58s =======================
 ```
 *(Tests state contracts, labelled extractors, SQLite registers, Chroma memory, synonym RAG, 4-way router, 3-tier action gate, FastAPI endpoints, PII logging, and adversarial security).*
 
