@@ -1,7 +1,7 @@
 # MedClaim Rx — Tracer-Bullet Development Ticket Plan
 
 **Project:** MedClaim Rx — Clinical Prior-Authorization & Formulary Desk  
-**Roadmap Scope:** Commits 01 to 56 (Full Implementation & Verification)
+**Roadmap Scope:** Commits 01 to 68 (Full Implementation, Polish, & Submission Readiness)
 
 ---
 
@@ -23,6 +23,9 @@
                                │
                                ▼
                    [T-07: Streamlit Reviewer UI] [x]
+                               │
+                               ▼
+                   [T-08: Polish, Multi-Tier Governance & Docker] [x]
 ```
 
 ---
@@ -122,6 +125,26 @@
 - **Objective:** Develop an interactive web interface for pharmacy clerks and clinical reviewers.
 - **Key Deliverables:**
   - `app/ui.py` (Streamlit interface for prescription input, real-time gate visualization, and audit inspection).
+  - `streamlit_app.py` (Cloud deployment entrypoint).
 - **Acceptance Criteria:**
   - [x] Provides quick test slip templates (G01 through G06).
   - [x] Displays status badge, station pills, RAG evidence, and JSON trace diary.
+
+---
+
+### [x] T-08: Polish, Multi-Tier Governance, API Gateway & Containerized Deployment
+- **Status:** Complete (Polish Sprint)
+- **Dependencies:** T-05, T-06, T-07
+- **Objective:** Deliver enterprise Polish & Buffer enhancements across routing, governance, observability, REST APIs, and Docker stacks.
+- **Key Deliverables:**
+  - `app/router.py`: Zero-cost 4-way router and 3-Tier Action Permission Gate.
+  - `app/memory.py`: Clinical synonym dictionary and threshold filtering.
+  - `app/log.py`: Execution `latency_ms` tracking and comparative token cost receipt.
+  - `app/api.py`: FastAPI OpenAPI REST service (`/health`, `/triage`, `/action-gate`).
+  - `Dockerfile` & `docker-compose.yml`: Multi-service container orchestration.
+  - `app/ui.py`: Persona toggle, Action Gate simulator, and Sequence Flow visualization.
+  - `tests/test_router.py`, `tests/test_api.py`: Test suite expanded to 56 passing tests.
+- **Acceptance Criteria:**
+  - [x] 56 unit tests passing cleanly via `pytest`.
+  - [x] Golden Set 100% compliance maintained.
+  - [x] Container stack and REST API operational with Swagger documentation.
