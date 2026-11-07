@@ -176,17 +176,6 @@ def get_chroma_client(persist_dir: str = DEFAULT_CHROMA_DIR):
     return _get_fallback_store(persist_dir)
 
 
-def policy_collection(persist_dir: str = DEFAULT_CHROMA_DIR, collection_name: str = DEFAULT_COLLECTION_NAME):
-    """Retrieve ChromaDB collection or fallback store."""
-    client = get_chroma_client(persist_dir)
-    if hasattr(client, "get_or_create_collection"):
-        emb_fn = get_embedding_function()
-        if emb_fn:
-            return client.get_or_create_collection(name=collection_name, embedding_function=emb_fn)
-        return client.get_or_create_collection(name=collection_name)
-    return client.get_or_create_collection(collection_name)
-
-
 def seed_policy(
     policy_path: str = DEFAULT_POLICY_PATH,
     persist_dir: str = DEFAULT_CHROMA_DIR,
