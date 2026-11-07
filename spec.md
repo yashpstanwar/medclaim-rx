@@ -1,5 +1,6 @@
 # MedClaim Rx — Product Specification & Clinical Rules
 
+**Selected Capstone Domain:** Healthcare domain  
 **Document Version:** 1.0.0  
 **Status:** FROZEN  
 **Target Platform:** Hospital Pharmacy Formulary Desk & TPA Prior-Authorization
@@ -48,9 +49,9 @@ MedClaim Rx operates exclusively against authorized, locally verifiable, and det
 
 ### 4.1 Success Criteria
 - **Zero False Approvals on Licensure:** 0% rate of recommending approval when an NMC license is absent, unknown, or suspended.
-- **Zero Formulary Violations:** 0% unverified approval of non-formulary medications without therapeutic substitution sign-off.
-- **Zero High-Cost Biologic Stamp Bypass:** 100% of claims with `cost_inr >= 25000.0` correctly routed to `cmo_review_needed`.
-- **Same-Day Routine Clearance:** Fully automated preliminary triage of routine formulary claims (< ₹25,000 INR, verified license, confidence ≥ 0.80) in under 2 seconds.
+- **Formulary Conformance:** 100% interception of off-formulary drug codes for pharmacist therapeutic substitution.
+- **Biologic Gating Invariant:** 100% diversion of claims ≥ ₹25,000 INR to the CMO counter-signature queue.
+- **Deterministic Confidence Threshold:** Prescriptions with parsing confidence < 0.80 must automatically halt at clerk triage review.
 
 ### 4.2 Harm Taxonomy & Mitigations
 

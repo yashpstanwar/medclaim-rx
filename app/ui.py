@@ -180,6 +180,7 @@ def read_jsonl_traces(log_path: str = DEFAULT_LOG_PATH, limit: int = 50) -> List
 
 # Sidebar: Governance, Active Role & Strong-Room Status
 with st.sidebar:
+    st.markdown('<div class="station-pill" style="margin-bottom:12px; width:100%; text-align:center;">Domain: Healthcare | Live Capstone Build</div>', unsafe_allow_html=True)
     st.title("⚙️ Clinical Governance")
 
     # Interactive Role Selector for 3-Tier Gate
@@ -285,6 +286,7 @@ PRESETS = {
 }
 
 # Main Application Header
+st.markdown('<div class="station-pill" style="margin-bottom:8px; display:inline-block;">Domain: Healthcare | Live Capstone Build</div>', unsafe_allow_html=True)
 st.title("🩺 MedClaim Rx — Clinical Prior-Authorization Desk")
 st.caption(
     "Fail-closed deterministic prior-authorization copilot powered by LangGraph, SQLite, and ChromaDB."
