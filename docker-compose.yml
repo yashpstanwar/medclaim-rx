@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  # Fast-API REST Gateway & Governance API
+  medclaim-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8010
+    container_name: medclaim-api
+    ports:
+      - "8010:8010"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - medclaim-data:/app/data
+      - medclaim-logs:/app/logs
+      - medclaim-chroma:/app/.chroma
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Obsidian Dark-Mode Streamlit Triage Desk
+  medclaim-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    container_name: medclaim-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - API_URL=http://medclaim-api:8010
+    volumes:
+      - medclaim-data:/app/data
+      - medclaim-logs:/app/logs
+      - medclaim-chroma:/app/.chroma
+    depends_on:
+      medclaim-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  medclaim-data:
+  medclaim-logs:
+  medclaim-chroma:
