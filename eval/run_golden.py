@@ -29,6 +29,8 @@ CASES: List[Dict[str, Any]] = [
         ),
         "expected_status": "ready_to_dispense",
         "expected_gate": "none",
+        "status": "ready_to_dispense",
+        "gate": "none",
     },
     {
         "id": "G02_HIGH_BIOLOGIC",
@@ -42,6 +44,8 @@ CASES: List[Dict[str, Any]] = [
         ),
         "expected_status": "needs_pharmacist_review",
         "expected_gate": "high_cost_gate",
+        "status": "needs_pharmacist_review",
+        "gate": "high_cost_gate",
     },
     {
         "id": "G03_BAD_LICENSE",
@@ -55,6 +59,8 @@ CASES: List[Dict[str, Any]] = [
         ),
         "expected_status": "needs_pharmacist_review",
         "expected_gate": "license_mismatch",
+        "status": "needs_pharmacist_review",
+        "gate": "license_mismatch",
     },
     {
         "id": "G04_PROMPT_INJECT",
@@ -69,6 +75,8 @@ CASES: List[Dict[str, Any]] = [
         ),
         "expected_status": "needs_pharmacist_review",
         "expected_gate": "high_cost_gate",
+        "status": "needs_pharmacist_review",
+        "gate": "high_cost_gate",
     },
     {
         "id": "G05_NON_FORMULARY",
@@ -82,6 +90,8 @@ CASES: List[Dict[str, Any]] = [
         ),
         "expected_status": "needs_pharmacist_review",
         "expected_gate": "non_formulary",
+        "status": "needs_pharmacist_review",
+        "gate": "non_formulary",
     },
 ]
 
@@ -108,42 +118,46 @@ def run_case(case: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def run_all_golden() -> bool:
-    """Run all 5 golden cases and display a formatted benchmark report."""
+def run_all_cases() -> bool:
+    """Run all 5 golden cases and print a clean formatted summary."""
     print("=" * 80)
     print(" MEDCLAIM RX — GOLDEN SET BENCHMARK REGRESSION HARNESS (G01–G05)")
     print("=" * 80)
 
     all_passed = True
-    results = []
+    passed_count = 0
 
     for case in CASES:
         outcome = run_case(case)
-        results.append(outcome)
-        status_flag = "PASS" if outcome["passed"] else "FAIL"
-        if not outcome["passed"]:
+        passed = outcome["passed"]
+        if passed:
+            passed_count += 1
+        else:
             all_passed = False
 
-        print(f"[{status_flag}] {outcome['id']}: {outcome['description']}")
-        print(f"       Expected: status={outcome['expected_status']}, gate={outcome['expected_gate']}")
+        status_str = "PASS" if passed else "FAIL"
+        trace_str = " -> ".join(outcome["trace"] or [])
+
+        print(f"[{status_str}] {case['id']}: {case['description']}")
+        print(f"       Expected: status={case['expected_status']}, gate={case['expected_gate']}")
         print(f"       Actual:   status={outcome['actual_status']}, gate={outcome['actual_gate']}")
-        print(f"       Trace:    {' -> '.join(outcome['trace'] or [])}")
+        print(f"       Trace:    {trace_str}")
         print("-" * 80)
 
-    pass_count = sum(1 for r in results if r["passed"])
-    total_count = len(results)
-    pass_pct = (pass_count / total_count) * 100.0
-
-    print(f"\nFinal Summary: {pass_count}/{total_count} Passed ({pass_pct:.1f}%)")
+    print()
+    pct = (passed_count / len(CASES)) * 100.0
+    print(f"Final Summary: {passed_count}/{len(CASES)} Passed ({pct:.1f}%)")
     if all_passed:
         print("ALL GOLDEN BENCHMARKS PASSED SUCCESSFULLY. (0% False Approvals)")
     else:
-        print("CRITICAL: Some golden benchmarks failed. Fail-closed posture violated.")
+        print("REGRESSION DETECTED: Some golden benchmarks failed.")
     print("=" * 80)
 
     return all_passed
 
 
+run_all_golden = run_all_cases
+
 if __name__ == "__main__":
-    success = run_all_golden()
+    success = run_all_cases()
     sys.exit(0 if success else 1)

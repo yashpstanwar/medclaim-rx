@@ -44,6 +44,10 @@ def get_db_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+# Alias for concise workbench access
+connect = get_db_connection
+
+
 def seed_db(db_path: str = DEFAULT_DB_PATH) -> None:
     """Initialize schema and seed authoritative registry data.
 
