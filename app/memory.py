@@ -18,6 +18,47 @@ DEFAULT_COLLECTION_NAME = "clinical_policies"
 DEFAULT_CHROMA_DIR = str(ROOT_DIR / ".chroma")
 DEFAULT_POLICY_PATH = str(ROOT_DIR / "data" / "clinical_policy.md")
 
+# Similarity Threshold Tuning
+DEFAULT_THRESHOLD: float = 0.40
+STRICT_THRESHOLD: float = 0.17
+
+# Clinical Domain Synonym Registry
+CLINICAL_SYNONYMS: dict[str, list[str]] = {
+    "biologic": ["adalimumab", "restricted", "high-cost", "immunosuppressive"],
+    "biologics": ["adalimumab", "restricted", "high-cost", "immunosuppressive"],
+    "license": ["nmc", "registration", "prescriber", "credential"],
+    "licensure": ["nmc", "registration", "prescriber", "credential"],
+    "stamp": ["approval", "cmo", "override", "prior-auth"],
+    "formulary": ["whitelisted", "approved", "tier", "catalog"],
+    "antibiotic": ["amoxicillin", "anti-infective", "routine"],
+    "doctor": ["physician", "practitioner", "prescriber", "nmc"],
+}
+
+
+def expand_query_synonyms(query: str) -> str:
+    """Expand clinical terms in query with domain synonyms to improve RAG recall.
+
+    Examples:
+      - 'biologic' -> 'biologic adalimumab restricted high-cost immunosuppressive'
+      - 'license' -> 'license nmc registration prescriber credential'
+      - 'stamp' -> 'stamp approval cmo override prior-auth'
+    """
+    if not query or not query.strip():
+        return query
+
+    tokens = re.findall(r"\w+", query.lower())
+    additions: list[str] = []
+    for token in tokens:
+        if token in CLINICAL_SYNONYMS:
+            for syn in CLINICAL_SYNONYMS[token]:
+                if syn not in tokens and syn not in additions:
+                    additions.append(syn)
+
+    if additions:
+        return f"{query} {' '.join(additions)}"
+    return query
+
+
 try:
     import chromadb
     from chromadb.utils import embedding_functions
@@ -65,7 +106,11 @@ class _FallbackPolicyStore:
         self._collections[collection_name] = list(existing.values())
 
     def query(
-        self, collection_name: str, query_text: str, n_results: int = 3
+        self,
+        collection_name: str,
+        query_text: str,
+        n_results: int = 3,
+        threshold: Optional[float] = None,
     ) -> List[str]:
         items = self._collections.get(collection_name, [])
         if not items:
@@ -83,9 +128,16 @@ class _FallbackPolicyStore:
             doc_tokens = _tokenize(it["document"])
             overlap = len(query_tokens & doc_tokens)
             score = overlap / math.sqrt(len(query_tokens) * (len(doc_tokens) + 1e-5))
-            scored.append((score, it["document"]))
+            if threshold is not None:
+                if score >= threshold:
+                    scored.append((score, it["document"]))
+            else:
+                if score > 0:
+                    scored.append((score, it["document"]))
 
         scored.sort(key=lambda x: x[0], reverse=True)
+        if threshold is not None:
+            return [doc for score, doc in scored[:n_results]]
         return [doc for score, doc in scored[:n_results] if score > 0] or [
             it["document"] for it in items[:n_results]
         ]
@@ -189,20 +241,26 @@ def retrieve_policy_chunks(
     n_results: int = 3,
     persist_dir: str = DEFAULT_CHROMA_DIR,
     collection_name: str = DEFAULT_COLLECTION_NAME,
+    threshold: Optional[float] = None,
+    expand_synonyms: bool = True,
 ) -> List[str]:
     """Retrieve top relevant clinical policy chunks from Chroma vector index.
 
     Enforces fail-closed behavior: returns [] if collection is empty or missing.
+    Supports clinical synonym expansion and similarity threshold filtering.
 
     Args:
         query: Clinical search query (e.g. 'biologic cost limit').
         n_results: Maximum number of chunks to return.
         persist_dir: Chroma persistent directory.
         collection_name: Target Chroma collection name.
+        threshold: Minimum similarity threshold (e.g. DEFAULT_THRESHOLD or STRICT_THRESHOLD).
+        expand_synonyms: Whether to expand query with CLINICAL_SYNONYMS.
 
     Returns:
         List of matching policy rule strings, or [] if empty/fail-closed.
     """
+    search_query = expand_query_synonyms(query) if expand_synonyms else query
     client = get_chroma_client(persist_dir)
 
     if CHROMA_AVAILABLE and hasattr(client, "get_or_create_collection"):
@@ -220,12 +278,23 @@ def retrieve_policy_chunks(
                 return []
 
             results = collection.query(
-                query_texts=[query],
+                query_texts=[search_query],
                 n_results=min(n_results, collection.count()),
+                include=["documents", "distances"],
             )
             docs = results.get("documents", [])
+            distances = results.get("distances", [])
             if docs and len(docs) > 0:
-                return docs[0]
+                doc_list = docs[0]
+                dist_list = distances[0] if distances and len(distances) > 0 else []
+                if threshold is not None and dist_list:
+                    filtered = []
+                    for doc, dist in zip(doc_list, dist_list):
+                        sim = 1.0 - min(float(dist), 1.0)
+                        if sim >= threshold:
+                            filtered.append(doc)
+                    return filtered
+                return doc_list
             return []
         except Exception:
             # On vector error, fail-closed
@@ -235,7 +304,10 @@ def retrieve_policy_chunks(
         if store.count(collection_name) == 0:
             return []
         return store.query(
-            collection_name=collection_name, query_text=query, n_results=n_results
+            collection_name=collection_name,
+            query_text=search_query,
+            n_results=n_results,
+            threshold=threshold,
         )
 
 
